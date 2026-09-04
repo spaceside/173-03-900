@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.145/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.145/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <script type="module">
+  
+  // Grant CesiumJS access to your ion assets
+Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJmMmU4YWJkNS1jMDI1LTQxNGItYWZlMi1hMzE1YmNkMDVmNWQiLCJpZCI6NDY1OTMsImlhdCI6MTYxNjM4MDIxNX0.YthbqlUf7PRAm8nG6pjUvZ7Oassz76CwYzbPRbczuVo";
+ const viewer = new Cesium.Viewer("cesiumContainer", {
+    terrainProvider:
+      await Cesium.CesiumTerrainProvider.fromIonAssetId(5155719,{
+    depthTestAgainstTerrain: true,
+    requestVertexNormals: true //Needed to visualize slope
+  }),
+      animation: false,
+    baseLayerPicker: false,
+    fullscreenButton: false,
+    geocoder: false,
+    homeButton: false,
+    infoBox: false,
+    navigationHelpButton: false,
+    sceneModePicker: false,
+    selectionIndicator: false,
+    timeline: false,
+    console: false
+  });
+
+var clock = new Cesium.Clock({
+   currentTime : Cesium.JulianDate.fromIso8601("2026-07-25"),
+   canAnimate : false,
+   shouldAnimate: false,
+  
+});
+
+//Add LINZ Basemap
+
+  //Add LINZ Basemap
+const imagery = new Cesium.WebMapTileServiceImageryProvider({
+  url: "https://basemaps.linz.govt.nz/v1/tiles/aerial/{TileMatrixSet}/{TileMatrix}/{TileCol}/{TileRow}.png?api=c01kveqvx8ckshhfx5pt7cy81x6",
+  layer: "aerial",
+  style: "default",
+  tileMatrixSetID: "WebMercatorQuad",
+  format: "image/webp",
+});
+const layer = new Cesium.ImageryLayer(imagery);
+await viewer.imageryLayers.add(layer);
+
+
+
+const entities = viewer.entities;
+const lotOutline = entities.add(new Cesium.Entity());
+const lotFill = entities.add(new Cesium.Entity());
+const extgOutline = entities.add(new Cesium.Entity());
+const extgFill = entities.add(new Cesium.Entity());
+lotFill.show = false
+extgFill.show = false
+
+
+//LOT BOUNDARIES CLAMPTOGROUND
+
+let boundary;
+try{
+
+const geoJSON = await Cesium.IonResource.fromAssetId(5183145);
+const promise = Cesium.GeoJsonDataSource.load(geoJSON);
+
+promise.then(function (dataSource) {
+  let entities = [];
+  dataSource.entities.values.forEach(entity=>{
+    let ent = viewer.entities.add({
+      parent: lotOutline,
+      polyline:{
+       positions: entity.polygon.hierarchy.getValue().positions,
+        width: 2,
+        material: Cesium.Color.CYAN.withAlpha(0.5),
+        clampToGround: true
+      }
+    });
+  });
+});
+
+
+promise.then(function (dataSource) {
+  let entities = [];
+  dataSource.entities.values.forEach(entity=>{
+    let ent = viewer.entities.add({
+      parent: lotFill,
+      polygon:{
+        hierarchy:entity.polygon.hierarchy.getValue(),
+        material:Cesium.Color.RED.withAlpha(0.5)
+      }
+    });
+  });
+});
+
+} catch (error) {
+  console.log(error);
+}
+
+let existing;
+try{
+
+const promise = Cesium.GeoJsonDataSource.load("https://services7.arcgis.com/8G10QCd84QpdcTJ9/ArcGIS/rest/services/raiting_parcels/FeatureServer/1/query?where=1%3D1&objectIds=&geometry=2038980.550093%2C5706286.094013&geometryType=esriGeometryPoint&inSR=2193&spatialRel=esriSpatialRelIntersects&resultType=none&distance=2&units=esriSRUnit_Kilometer&outDistance=&relationParam=&returnGeodetic=false&outFields=*&returnGeometry=true&returnCentroid=false&returnEnvelope=false&featureEncoding=esriDefault&multipatchOption=extent&maxAllowableOffset=&geometryPrecision=&outSR=&defaultSR=&datumTransformation=&applyVCSProjection=false&returnIdsOnly=false&returnUniqueIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnQueryGeometry=false&returnDistinctValues=false&cacheHint=false&collation=&orderByFields=&groupByFieldsForStatistics=&returnAggIds=false&outStatistics=&having=&resultOffset=&resultRecordCount=&returnZ=true&returnM=true&returnTrueCurves=false&returnExceededLimitFeatures=true&returnExceededLimitGeometries=true&quantizationParameters=&sqlFormat=none&f=pgeojson&token=");
+
+promise.then(function (dataSource) {
+  let entities = [];
+  dataSource.entities.values.forEach(entity=>{
+    let ent = viewer.entities.add({
+      parent: extgOutline,
+      polyline:{
+       positions: entity.polygon.hierarchy.getValue().positions,
+        width: 2,
+        material: Cesium.Color.YELLOW.withAlpha(0.5),
+        clampToGround: true
+      }
+    });
+  });
+});
+
+
+promise.then(function (dataSource) {
+  let entities = [];
+  dataSource.entities.values.forEach(entity=>{
+    let ent = viewer.entities.add({
+      parent: extgFill,
+      polygon:{
+        hierarchy:entity.polygon.hierarchy.getValue(),
+        material:Cesium.Color.GREY.withAlpha(0.5)
+      }
+    });
+  });
+});
+
+} catch (error) {
+  console.log(error);
+}
+
+let buildingTileset;
+try {
+buildingTileset = await Cesium.Cesium3DTileset.fromIonAssetId(5183135);
+viewer.scene.primitives.add(buildingTileset, {
+   depthTestAgainstTerrain: true,
+});
+await viewer.zoomTo(buildingTileset);
+  
+} catch (error) {
+  console.log(error);
+}
+
+
+
+let slopeArrows;
+try {
+slopeArrows = await Cesium.Cesium3DTileset.fromIonAssetId(5183154);
+viewer.scene.primitives.add(slopeArrows);
+  
+} catch (error) {
+  console.log(error);
+}
+
+slopeArrows.show = false
+
+let slopeBand;
+try {
+slopeBand = await Cesium.Cesium3DTileset.fromIonAssetId(5183136);
+viewer.scene.primitives.add(slopeBand);
+  
+} catch (error) {
+  console.log(error);
+}
+slopeBand.show = false
+
+Sandcastle.addToggleButton("Show proposed design", true, function (checked) {
+  buildingTileset.show = checked
+});
+
+Sandcastle.addToggleButton("Show proposed slope arrows", false, function (checked) {
+  slopeArrows.show = checked
+});
+
+Sandcastle.addToggleButton("Show proposed slope banding", false, function (checked) {
+  slopeBand.show = checked
+});
+
+Sandcastle.addToggleButton("Show proposed lot outline", true, function (checked) {
+  lotOutline.show = !lotOutline.show;
+});
+
+Sandcastle.addToggleButton("Show proposed lot hatch", false, function (checked) {
+  lotFill.show = !lotFill.show;
+});
+
+Sandcastle.addToggleButton("Show extg lot outline", true, function (checked) {
+  extgOutline.show = !extgOutline.show;
+});
+
+
+Sandcastle.addToggleButton("Show extg lot hatch", false, function (checked) {
+extgFill.show = !extgFill.show;
+});
+
+
+
+
+
+  
+    </script>
+</body>
+</html>
